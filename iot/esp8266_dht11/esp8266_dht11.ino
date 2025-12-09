@@ -4,10 +4,10 @@
 #include <ESP8266WiFi.h>
 
 // Environment variables (update in docs)
-const char *WIFI_SSID = "ROSAMAR_5G";
-const char *WIFI_PASSWORD = "rosa@2024";
+const char *WIFI_SSID = "YOUR_WIFI";
+const char *WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
 const char *API_URL = "http://192.168.1.10:8000/api/ingest/";
-const char *SENSOR_TOKEN = "7ba9532e2ffcb7e8d4c70cdf0c264e33";
+const char *SENSOR_TOKEN = "YOUR_SENSOR_TOKEN";
 
 #define DHTPIN D4
 #define DHTTYPE DHT11
