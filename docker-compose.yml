@@ -1,0 +1,53 @@
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-coldchain}
+      POSTGRES_USER: ${POSTGRES_USER:-coldchain}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-coldchain}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+      
+  api:
+    build:
+      context: ./backend
+    command: gunicorn core.wsgi:application --bind 0.0.0.0:8000
+    env_file:
+      - ./.env
+    environment:
+      POSTGRES_HOST: db
+    volumes:
+      - ./backend:/app
+      - static_volume:/app/staticfiles  # Preserve staticfiles
+    depends_on:
+      - db
+    ports:
+      - "8000:8000"
+      
+  web:
+    build:
+      context: ./frontend
+    environment:
+      VITE_API_URL: http://api:8000/api
+    ports:
+      - "5173:80"
+    depends_on:
+      - api
+      
+  nginx:
+    image: nginx:stable-alpine
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - static_volume:/app/staticfiles:ro
+    ports:
+      - "80:80"       # mettre Nginx DIRECTEMENT sur port 80
+    depends_on:
+      - api
+      - web
+
+      
+volumes:
+  postgres_data:
+  static_volume:  # Add this
