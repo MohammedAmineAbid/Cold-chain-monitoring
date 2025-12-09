@@ -92,7 +92,7 @@ class AlertRule(models.Model):
     max_temp = models.DecimalField(max_digits=5, decimal_places=2, default=8.0)
     window_minutes = models.PositiveIntegerField(default=0)
     is_active = models.BooleanField(default=True)
-    channels = models.JSONField(default=list, blank=True)
+    channels = models.ManyToManyField("Channel", blank=True)
     created_by = models.ForeignKey(
         User, null=True, blank=True, on_delete=models.SET_NULL, related_name="rules"
     )
@@ -162,6 +162,22 @@ class Alert(models.Model):
 
     def __str__(self) -> str:
         return f"{self.sensor.name} - {self.severity}"
+
+class Channel(models.Model):
+    CHANNEL_TYPES = [
+        ("email", "Email"),
+        ("telegram", "Telegram"),
+        ("whatsapp", "WhatsApp"),
+        ("webhook", "Webhook"),
+    ]
+
+    name = models.CharField(max_length=100)
+    channel_type = models.CharField(max_length=20, choices=CHANNEL_TYPES)
+    target = models.CharField(max_length=255, help_text="Email, chat ID, phone ID ou URL webhook")
+
+    def __str__(self):
+        return f"{self.name} ({self.channel_type})"
+
 
 
 class Ticket(models.Model):

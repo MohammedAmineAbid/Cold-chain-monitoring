@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Alert, AlertRule, AuditLog, Measurement, Sensor, Ticket, User
+from .models import Alert, AlertRule, AuditLog, Measurement, Sensor, Ticket, User ,Channel
 
 
 @admin.register(User)
@@ -36,6 +36,11 @@ class AlertAdmin(admin.ModelAdmin):
     list_display = ("sensor", "severity", "status", "created_at")
     list_filter = ("severity", "status")
     search_fields = ("sensor__name",)
+
+@admin.register(Channel)
+class ChannelAdmin(admin.ModelAdmin):
+    list_display = ("name", "channel_type", "target")
+
 
 
 @admin.register(Ticket)
