@@ -7,8 +7,9 @@ from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
+ 
 
-from .models import Alert, AlertRule, AuditLog, Measurement, Sensor, Ticket
+from .models import Alert, AlertRule, AuditLog, Measurement, Sensor, Ticket, Channel
 from .notifications import (
     send_email_notification,
     send_telegram_notification,
@@ -58,29 +59,29 @@ def _should_trigger(rule: AlertRule, temperature: float) -> bool:
     return temperature < float(rule.min_temp) or temperature > float(rule.max_temp)
 
 
-def _notify_channels(alert: Alert, channels: list[str]) -> None:
-    subject = f"[Cold Chain] {alert.severity.title()} for {alert.sensor.name}"
+def _notify_channels(alert: Alert, channels) -> None:
+    subject = f"[Cold Chain] {alert.severity.upper()} - {alert.sensor.name}"
     body = (
         f"Sensor: {alert.sensor.name}\n"
         f"Location: {alert.sensor.location}\n"
-        f"Temperature: {alert.measurement.temperature}°C\n"
+        f"Temperature: {alert.measurement.temperature} °C\n"
         f"Recorded at: {alert.measurement.recorded_at:%Y-%m-%d %H:%M:%S}\n"
-        f"Status: {alert.status}\n"
         f"Message: {alert.message}"
     )
-    if "email" in channels:
-        recipients = list(
-            get_user_model()
-            .objects.filter(is_active=True)
-            .exclude(email="")
-            .values_list("email", flat=True)
-        )
-        send_email_notification(subject, body, recipients)
-    if "telegram" in channels:
-        send_telegram_notification(body)
-    if "whatsapp" in channels:
-        send_whatsapp_notification(body)
 
+    for channel in channels:
+        if channel.channel_type == "email":
+            send_email_notification(
+                subject=subject,
+                body=body,
+                recipients=[channel.target],
+            )
+
+        elif channel.channel_type == "telegram":
+            send_telegram_notification(body)
+
+        elif channel.channel_type == "whatsapp":
+            send_whatsapp_notification(body)
 
 def _create_alert(*, measurement: Measurement, rule: Optional[AlertRule]) -> Alert:
     severity = (
@@ -88,12 +89,14 @@ def _create_alert(*, measurement: Measurement, rule: Optional[AlertRule]) -> Ale
         if measurement.status == Measurement.Status.CRITICAL
         else Alert.Severity.WARNING
     )
+
     message = (
         f"Temperature {measurement.temperature}°C outside "
         f"{float(rule.min_temp) if rule else measurement.sensor.threshold_min}"
         f"-"
         f"{float(rule.max_temp) if rule else measurement.sensor.threshold_max}°C"
     )
+
     alert = Alert.objects.create(
         sensor=measurement.sensor,
         rule=rule,
@@ -101,15 +104,23 @@ def _create_alert(*, measurement: Measurement, rule: Optional[AlertRule]) -> Ale
         severity=severity,
         message=message,
     )
-    channels = rule.channels if rule and rule.channels else ["email", "telegram"]
+
+    if rule:
+        channels = list(rule.channels.all())
+    else:
+        channels = list(Channel.objects.all())
+
     _notify_channels(alert, channels)
+
     record_audit(
         action="alert.created",
         actor=None,
         target=alert,
         payload={"message": message},
     )
+
     return alert
+
 
 
 def _ensure_ticket(alert: Alert) -> Ticket:

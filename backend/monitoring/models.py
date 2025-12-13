@@ -81,6 +81,7 @@ class Measurement(models.Model):
 class AlertRule(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=120)
+
     sensor = models.ForeignKey(
         Sensor,
         related_name="alert_rules",
@@ -88,16 +89,21 @@ class AlertRule(models.Model):
         null=True,
         blank=True,
     )
+
     min_temp = models.DecimalField(max_digits=5, decimal_places=2, default=2.0)
     max_temp = models.DecimalField(max_digits=5, decimal_places=2, default=8.0)
     window_minutes = models.PositiveIntegerField(default=0)
     is_active = models.BooleanField(default=True)
+
+    # ✅ ICI
     channels = models.ManyToManyField("Channel", blank=True)
+
     created_by = models.ForeignKey(
         User, null=True, blank=True, on_delete=models.SET_NULL, related_name="rules"
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
 
     class Meta:
         ordering = ["name"]

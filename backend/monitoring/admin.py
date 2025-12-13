@@ -29,6 +29,8 @@ class AlertRuleAdmin(admin.ModelAdmin):
     list_display = ("name", "sensor", "min_temp", "max_temp", "is_active")
     list_filter = ("is_active",)
     search_fields = ("name",)
+filter_horizontal = ("channels",)
+
 
 
 @admin.register(Alert)

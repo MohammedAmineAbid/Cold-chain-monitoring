@@ -3,11 +3,14 @@
 #include <ESP8266HTTPClient.h>
 #include <ESP8266WiFi.h>
 
-// Environment variables (update in docs)
 const char *WIFI_SSID = "YOUR_WIFI";
 const char *WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
-const char *API_URL = "http://192.168.1.10:8000/api/ingest/";
-const char *SENSOR_TOKEN = "YOUR_SENSOR_TOKEN";
+
+// USE INGEST ENDPOINT (IMPORTANT)
+const char *API_URL = "http://YOUR_WIFI_IP:8000/api/ingest/";
+
+// PUT THE SENSOR TOKEN FROM DJANGO ADMIN
+const char *SENSOR_TOKEN = "6dacb53daa7424f6d1f4999a59671ab7";
 
 #define DHTPIN D4
 #define DHTTYPE DHT11
@@ -15,15 +18,47 @@ const char *SENSOR_TOKEN = "YOUR_SENSOR_TOKEN";
 DHT dht(DHTPIN, DHTTYPE);
 
 void connectWifi() {
-  if (WiFi.status() == WL_CONNECTED) {
-    return;
-  }
+  if (WiFi.status() == WL_CONNECTED) return;
+
+  Serial.print("Connecting to WiFi");
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-  uint8_t retries = 0;
-  while (WiFi.status() != WL_CONNECTED && retries < 20) {
+
+  while (WiFi.status() != WL_CONNECTED) {
     delay(500);
-    retries++;
+    Serial.print(".");
   }
+
+  Serial.println(" Connected!");
+}
+
+void sendMeasurement(float temperature, float humidity) {
+  if (WiFi.status() != WL_CONNECTED) connectWifi();
+
+  WiFiClient client;
+  HTTPClient http;
+
+  http.begin(client, API_URL);
+  http.addHeader("Content-Type", "application/json");
+
+  StaticJsonDocument<200> payload;
+  payload["sensor_token"] = SENSOR_TOKEN;
+  payload["temperature"] = temperature;
+  payload["humidity"] = humidity;
+
+  String json;
+  serializeJson(payload, json);
+
+  Serial.println("Sending: " + json);
+
+  int status = http.POST(json);
+  Serial.print("Response code: ");
+  Serial.println(status);
+
+  if (status > 0) {
+    Serial.println(http.getString());
+  }
+
+  http.end();
 }
 
 void setup() {
@@ -32,62 +67,16 @@ void setup() {
   connectWifi();
 }
 
-void sendMeasurement(float temperature, float humidity) {
-  if (WiFi.status() != WL_CONNECTED) {
-    connectWifi();
-  }
-  if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("WiFi not available, skipping payload");
-    return;
-  }
-
-  WiFiClient client;
-  HTTPClient http;
-
-  if (!http.begin(client, API_URL)) {
-    Serial.println("HTTP begin failed");
-    return;
-  }
-
-  http.addHeader("Content-Type", "application/json");
-
-  StaticJsonDocument<256> payload;
-  payload["sensor_token"] = SENSOR_TOKEN;
-  payload["temperature"] = temperature;
-  payload["humidity"] = humidity;
-
-  String json;
-  serializeJson(payload, json);
-
-  int status = http.POST(json);
-
-  if (status > 0) {
-    Serial.printf("Measurement sent. Status: %d\n", status);
-    Serial.println(http.getString());
-  } else {
-    Serial.printf("HTTP error: %d\n", status);
-  }
-
-  http.end();
-}
-
 void loop() {
-  float humidity = dht.readHumidity();
   float temperature = dht.readTemperature();
+  float humidity = dht.readHumidity();
 
-  if (isnan(humidity) || isnan(temperature)) {
-    Serial.println("Failed to read from DHT sensor!");
-    delay(10000);
+  if (isnan(temperature) || isnan(humidity)) {
+    Serial.println("Failed to read DHT");
+    delay(5000);
     return;
   }
 
   sendMeasurement(temperature, humidity);
-
-  // Wait 20 minutes
-  for (int i = 0; i < 1200; i++) {
-    delay(1000);
-    if (WiFi.status() != WL_CONNECTED) {
-      connectWifi();
-    }
-  }
+  delay(10000);
 }
