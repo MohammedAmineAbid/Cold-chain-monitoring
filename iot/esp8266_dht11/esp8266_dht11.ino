@@ -10,7 +10,7 @@ const char *WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
 const char *API_URL = "http://YOUR_WIFI_IP:8000/api/ingest/";
 
 // PUT THE SENSOR TOKEN FROM DJANGO ADMIN
-const char *SENSOR_TOKEN = "6dacb53daa7424f6d1f4999a59671ab7";
+const char *SENSOR_TOKEN = "YOUR_SENSOR_TOKEN";
 
 #define DHTPIN D4
 #define DHTTYPE DHT11
