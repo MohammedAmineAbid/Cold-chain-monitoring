@@ -95,7 +95,6 @@ class AlertRule(models.Model):
     window_minutes = models.PositiveIntegerField(default=0)
     is_active = models.BooleanField(default=True)
 
-    # ✅ ICI
     channels = models.ManyToManyField("Channel", blank=True)
 
     created_by = models.ForeignKey(
