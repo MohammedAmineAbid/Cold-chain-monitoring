@@ -1,70 +1,36 @@
-#include <ArduinoJson.h>
-#include <DHT.h>
-#include <ESP8266HTTPClient.h>
 #include <ESP8266WiFi.h>
+#include <ESP8266HTTPClient.h>
+#include <WiFiClientSecure.h>
+#include <DHT.h>
 
-const char *WIFI_SSID = "YOUR_WIFI";
-const char *WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
-
-// USE INGEST ENDPOINT (IMPORTANT)
-const char *API_URL = "http://YOUR_WIFI_IP:8000/api/ingest/";
-
-// PUT THE SENSOR TOKEN FROM DJANGO ADMIN
-const char *SENSOR_TOKEN = "YOUR_SENSOR_TOKEN";
-
-#define DHTPIN D4
+#define DHTPIN 5
 #define DHTTYPE DHT11
 
 DHT dht(DHTPIN, DHTTYPE);
 
-void connectWifi() {
-  if (WiFi.status() == WL_CONNECTED) return;
+// WiFi
+const char* ssid = "VIP ROSAMAR 2.4G";
+const char* password = "ROSA2024";
 
-  Serial.print("Connecting to WiFi");
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+// API Django (HTTPS obligatoire)
+const char* serverUrl = "https://amineabid.pythonanywhere.com/api/ingest/";
+
+// Token du capteur
+const char* SENSOR_TOKEN = "90058e8df4f76b6c155b7f6f7ddc7865";
+
+void setup() {
+  Serial.begin(115200);
+  dht.begin();
+
+  WiFi.begin(ssid, password);
+  Serial.print("Connexion WiFi");
 
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
   }
 
-  Serial.println(" Connected!");
-}
-
-void sendMeasurement(float temperature, float humidity) {
-  if (WiFi.status() != WL_CONNECTED) connectWifi();
-
-  WiFiClient client;
-  HTTPClient http;
-
-  http.begin(client, API_URL);
-  http.addHeader("Content-Type", "application/json");
-
-  StaticJsonDocument<200> payload;
-  payload["sensor_token"] = SENSOR_TOKEN;
-  payload["temperature"] = temperature;
-  payload["humidity"] = humidity;
-
-  String json;
-  serializeJson(payload, json);
-
-  Serial.println("Sending: " + json);
-
-  int status = http.POST(json);
-  Serial.print("Response code: ");
-  Serial.println(status);
-
-  if (status > 0) {
-    Serial.println(http.getString());
-  }
-
-  http.end();
-}
-
-void setup() {
-  Serial.begin(115200);
-  dht.begin();
-  connectWifi();
+  Serial.println("\n✅ WiFi connecté !");
 }
 
 void loop() {
@@ -72,11 +38,40 @@ void loop() {
   float humidity = dht.readHumidity();
 
   if (isnan(temperature) || isnan(humidity)) {
-    Serial.println("Failed to read DHT");
+    Serial.println("❌ Erreur lecture DHT");
     delay(5000);
     return;
   }
 
-  sendMeasurement(temperature, humidity);
-  delay(10000);
+  // 🔐 HTTPS obligatoire
+  WiFiClientSecure client;
+  client.setInsecure();  // accepte certificat PythonAnywhere
+
+  HTTPClient http;
+  http.begin(client, serverUrl);
+  http.addHeader("Content-Type", "application/json");
+
+  String payload = "{";
+  payload += "\"sensor_token\":\"" + String(SENSOR_TOKEN) + "\",";
+  payload += "\"temperature\":" + String(temperature, 1) + ",";
+  payload += "\"humidity\":" + String(humidity, 1);
+  payload += "}";
+
+  Serial.println("📤 Envoi : " + payload);
+
+  int httpCode = http.POST(payload);
+
+  Serial.print("📡 Code HTTP : ");
+  Serial.println(httpCode);
+
+  if (httpCode > 0) {
+    Serial.println("📥 Réponse serveur :");
+    Serial.println(http.getString());
+  } else {
+    Serial.println("❌ Erreur HTTP");
+  }
+
+  http.end();
+
+  delay(1200000); // envoi toutes les 20 minutes
 }
